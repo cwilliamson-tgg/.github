@@ -58,6 +58,7 @@ jobs:
                && echo "✅ Updated $repo")
             cd -
             rm -rf /tmp/$repo
+          done
 
       - name: Set branch protection
         env:
@@ -67,26 +68,19 @@ jobs:
             --json name \
             --limit 100 \
             -q '.[].name')
-
           for repo in $repos; do
             if [ "$repo" = ".github" ]; then
               echo "Skipping .github"
               continue
             fi
-
             echo "Setting branch protection on $repo..."
-
-            # Check if main branch exists
             default_branch=$(gh repo view cwilliamson-tgg/$repo \
               --json defaultBranchRef \
               -q '.defaultBranchRef.name' 2>/dev/null)
-
             if [ -z "$default_branch" ]; then
               echo "No default branch in $repo, skipping"
               continue
             fi
-
-            # Set branch protection via API
             gh api \
               --method PUT \
               -H "Accept: application/vnd.github+json" \
