@@ -1,0 +1,37 @@
+name: New Repo Setup
+
+on:
+  repository_created:
+    types: [created]
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout .github repo
+        uses: actions/checkout@v4
+        with:
+          path: org-github
+
+      - name: Checkout new repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.repository.full_name }}
+          token: ${{ secrets.ORG_ADMIN_TOKEN }}
+          path: new-repo
+
+      - name: Copy issue templates
+        run: |
+          mkdir -p new-repo/.github/ISSUE_TEMPLATE
+          cp org-github/ISSUE_TEMPLATE/*.md \
+             new-repo/.github/ISSUE_TEMPLATE/
+
+      - name: Commit and push
+        run: |
+          cd new-repo
+          git config user.email "github-actions@github.com"
+          git config user.name "Tuesday Guild Bot"
+          git add .github/ISSUE_TEMPLATE/
+          git diff --staged --quiet || \
+            git commit -m "chore: add org issue templates"
+          git push
