@@ -19,7 +19,7 @@ jobs:
           echo "=== org-github contents ==="
           ls -la org-github/
           echo "=== ISSUE_TEMPLATE contents ==="
-          ls -la org-github/ISSUE_TEMPLATE/ || echo "NOT FOUND"
+          ls -la org-github/.github/ISSUE_TEMPLATE/ || echo "NOT FOUND"
           
       - name: Sync templates to all repos
         env:
@@ -58,7 +58,7 @@ jobs:
 
             # Copy templates
             mkdir -p /tmp/$repo/.github/ISSUE_TEMPLATE
-            cp org-github/ISSUE_TEMPLATE/*.md \
+            cp org-github/.github/ISSUE_TEMPLATE/*.md \
                /tmp/$repo/.github/ISSUE_TEMPLATE/
 
             cd /tmp/$repo
