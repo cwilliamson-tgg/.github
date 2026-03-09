@@ -1,8 +1,8 @@
 name: Repo Setup and Sync
 on:
   schedule:
-    - cron: '0 */6 * * *'  # Every 6 hours
-  workflow_dispatch:        # Manual trigger button
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -28,20 +28,17 @@ jobs:
             echo "Checking $repo..."
             gh repo clone cwilliamson-tgg/$repo \
               /tmp/$repo -- --quiet 2>/dev/null || true
-            # Skip empty repos
             if [ ! -f "/tmp/$repo/README.md" ] && \
                [ -z "$(ls -A /tmp/$repo 2>/dev/null)" ]; then
               echo "Skipping empty repo: $repo"
               rm -rf /tmp/$repo
               continue
             fi
-            # Skip if templates already exist
             if [ -d "/tmp/$repo/.github/ISSUE_TEMPLATE" ]; then
               echo "Templates exist in $repo, skipping"
               rm -rf /tmp/$repo
               continue
             fi
-            # Copy templates
             mkdir -p /tmp/$repo/.github/ISSUE_TEMPLATE
             cp org-github/.github/ISSUE_TEMPLATE/*.md \
                /tmp/$repo/.github/ISSUE_TEMPLATE/
@@ -86,39 +83,38 @@ jobs:
               -H "Accept: application/vnd.github+json" \
               /repos/cwilliamson-tgg/$repo/rulesets \
               --input - <<EOF
-            {
-              "name": "Protect $default_branch",
-              "target": "branch",
-              "enforcement": "active",
-              "conditions": {
-                "ref_name": {
-                  "include": ["refs/heads/$default_branch"],
-                  "exclude": []
-                }
-              },
-              "rules": [
-                { "type": "deletion" },
-                { "type": "non_fast_forward" },
-                {
-                  "type": "pull_request",
-                  "parameters": {
-                    "required_approving_review_count": 1,
-                    "dismiss_stale_reviews_on_push": true,
-                    "require_code_owner_review": false,
-                    "require_last_push_approval": false,
-                    "required_review_thread_resolution": false
-                  }
-                }
-              ],
-              "bypass_actors": [
-                {
-                  "actor_id": 5,
-                  "actor_type": "RepositoryRole",
-                  "bypass_mode": "always"
-                }
-              ]
-            }
+{
+  "name": "Protect $default_branch",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["refs/heads/$default_branch"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 1,
+        "dismiss_stale_reviews_on_push": true,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false
+      }
+    }
+  ],
+  "bypass_actors": [
+    {
+      "actor_id": 5,
+      "actor_type": "RepositoryRole",
+      "bypass_mode": "always"
+    }
+  ]
+}
 EOF
-            && echo "✅ Ruleset applied to $repo/$default_branch" \
-            || echo "⚠️ Could not apply ruleset to $repo"
+            echo "✅ Ruleset applied to $repo/$default_branch"
           done
