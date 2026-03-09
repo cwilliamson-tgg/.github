@@ -12,13 +12,6 @@ jobs:
         with:
           path: org-github
 
-      - name: Debug checkout
-        run: |
-          echo "=== org-github contents ==="
-          ls -la org-github/
-          echo "=== ISSUE_TEMPLATE contents ==="
-          ls -la org-github/.github/ISSUE_TEMPLATE/ || echo "NOT FOUND"
-
       - name: Sync templates to all repos
         env:
           GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
