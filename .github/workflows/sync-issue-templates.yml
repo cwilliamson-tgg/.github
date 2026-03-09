@@ -18,14 +18,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
         run: |
-          # Get all repos in org
           repos=$(gh repo list cwilliamson-tgg \
             --json name \
             --limit 100 \
             -q '.[].name')
 
           for repo in $repos; do
-            # Skip .github repo itself
             if [ "$repo" = ".github" ]; then
               echo "Skipping .github"
               continue
@@ -33,11 +31,18 @@ jobs:
 
             echo "Checking $repo..."
 
-            # Clone the repo
             gh repo clone cwilliamson-tgg/$repo \
-              /tmp/$repo -- --quiet
+              /tmp/$repo -- --quiet 2>/dev/null || true
 
-            # Check if templates already exist
+            # Skip empty repos
+            if [ ! -f "/tmp/$repo/README.md" ] && \
+               [ -z "$(ls -A /tmp/$repo 2>/dev/null)" ]; then
+              echo "Skipping empty repo: $repo"
+              rm -rf /tmp/$repo
+              continue
+            fi
+
+            # Skip if templates already exist
             if [ -d "/tmp/$repo/.github/ISSUE_TEMPLATE" ]; then
               echo "Templates exist in $repo, skipping"
               rm -rf /tmp/$repo
@@ -49,7 +54,6 @@ jobs:
             cp org-github/ISSUE_TEMPLATE/*.md \
                /tmp/$repo/.github/ISSUE_TEMPLATE/
 
-            # Commit and push if anything changed
             cd /tmp/$repo
             git config user.email "github-actions@github.com"
             git config user.name "Tuesday Guild Bot"
