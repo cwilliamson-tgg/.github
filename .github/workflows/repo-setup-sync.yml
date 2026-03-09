@@ -60,7 +60,7 @@ jobs:
             rm -rf /tmp/$repo
           done
 
-      - name: Set branch protection
+      - name: Set branch ruleset
         env:
           GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
         run: |
@@ -73,7 +73,7 @@ jobs:
               echo "Skipping .github"
               continue
             fi
-            echo "Setting branch protection on $repo..."
+            echo "Setting ruleset on $repo..."
             default_branch=$(gh repo view cwilliamson-tgg/$repo \
               --json defaultBranchRef \
               -q '.defaultBranchRef.name' 2>/dev/null)
@@ -82,15 +82,43 @@ jobs:
               continue
             fi
             gh api \
-              --method PUT \
+              --method POST \
               -H "Accept: application/vnd.github+json" \
-              /repos/cwilliamson-tgg/$repo/branches/$default_branch/protection \
-              -f required_status_checks='null' \
-              -F enforce_admins=false \
-              -f required_pull_request_reviews='{"required_approving_review_count":1,"dismiss_stale_reviews":true}' \
-              -f restrictions='null' \
-              -F allow_force_pushes=false \
-              -F allow_deletions=false \
-              && echo "✅ Protected $repo/$default_branch" \
-              || echo "⚠️ Could not protect $repo (may need admin access)"
+              /repos/cwilliamson-tgg/$repo/rulesets \
+              --input - <<EOF
+            {
+              "name": "Protect $default_branch",
+              "target": "branch",
+              "enforcement": "active",
+              "conditions": {
+                "ref_name": {
+                  "include": ["refs/heads/$default_branch"],
+                  "exclude": []
+                }
+              },
+              "rules": [
+                { "type": "deletion" },
+                { "type": "non_fast_forward" },
+                {
+                  "type": "pull_request",
+                  "parameters": {
+                    "required_approving_review_count": 1,
+                    "dismiss_stale_reviews_on_push": true,
+                    "require_code_owner_review": false,
+                    "require_last_push_approval": false,
+                    "required_review_thread_resolution": false
+                  }
+                }
+              ],
+              "bypass_actors": [
+                {
+                  "actor_id": 5,
+                  "actor_type": "RepositoryRole",
+                  "bypass_mode": "always"
+                }
+              ]
+            }
+EOF
+            && echo "✅ Ruleset applied to $repo/$default_branch" \
+            || echo "⚠️ Could not apply ruleset to $repo"
           done
