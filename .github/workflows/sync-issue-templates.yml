@@ -1,43 +1,65 @@
-name: Sync Issue Templates to All Repos
+name: Sync Issue Templates
 
 on:
-  push:
-    paths:
-      - 'ISSUE_TEMPLATE/**'
-  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  workflow_dispatch:        # Manual trigger button
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout .github repo
+        uses: actions/checkout@v4
+        with:
+          path: org-github
 
       - name: Sync templates to all repos
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
         run: |
-          # List all repos in org
-          repos=$(gh repo list cwilliamson-tgg --json name -q '.[].name')
-          
+          # Get all repos in org
+          repos=$(gh repo list cwilliamson-tgg \
+            --json name \
+            --limit 100 \
+            -q '.[].name')
+
           for repo in $repos; do
-            # Skip the .github repo itself
-            if [ "$repo" = ".github" ]; then continue; fi
-            
-            echo "Syncing templates to $repo..."
-            
-            # Clone repo
-            gh repo clone cwilliamson-tgg/$repo /tmp/$repo
-            
+            # Skip .github repo itself
+            if [ "$repo" = ".github" ]; then
+              echo "Skipping .github"
+              continue
+            fi
+
+            echo "Checking $repo..."
+
+            # Clone the repo
+            gh repo clone cwilliamson-tgg/$repo \
+              /tmp/$repo -- --quiet
+
+            # Check if templates already exist
+            if [ -d "/tmp/$repo/.github/ISSUE_TEMPLATE" ]; then
+              echo "Templates exist in $repo, skipping"
+              rm -rf /tmp/$repo
+              continue
+            fi
+
             # Copy templates
             mkdir -p /tmp/$repo/.github/ISSUE_TEMPLATE
-            cp ISSUE_TEMPLATE/*.md /tmp/$repo/.github/ISSUE_TEMPLATE/
-            
+            cp org-github/ISSUE_TEMPLATE/*.md \
+               /tmp/$repo/.github/ISSUE_TEMPLATE/
+
             # Commit and push if anything changed
             cd /tmp/$repo
             git config user.email "github-actions@github.com"
-            git config user.name "GitHub Actions"
+            git config user.name "Tuesday Guild Bot"
             git add .github/ISSUE_TEMPLATE/
-            git diff --staged --quiet || git commit -m "chore: sync issue templates from org .github"
-            git push
+            git diff --staged --quiet && \
+              echo "No changes in $repo" || \
+              (git commit -m "chore: add org issue templates" \
+               && git push \
+               && echo "✅ Updated $repo")
+
             cd -
+            rm -rf /tmp/$repo
           done
