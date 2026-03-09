@@ -1,4 +1,4 @@
-name: Sync Issue Templates
+name: Repo Setup and Sync
 on:
   schedule:
     - cron: '0 */6 * * *'  # Every 6 hours
@@ -58,4 +58,45 @@ jobs:
                && echo "✅ Updated $repo")
             cd -
             rm -rf /tmp/$repo
+
+      - name: Set branch protection
+        env:
+          GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+        run: |
+          repos=$(gh repo list cwilliamson-tgg \
+            --json name \
+            --limit 100 \
+            -q '.[].name')
+
+          for repo in $repos; do
+            if [ "$repo" = ".github" ]; then
+              echo "Skipping .github"
+              continue
+            fi
+
+            echo "Setting branch protection on $repo..."
+
+            # Check if main branch exists
+            default_branch=$(gh repo view cwilliamson-tgg/$repo \
+              --json defaultBranchRef \
+              -q '.defaultBranchRef.name' 2>/dev/null)
+
+            if [ -z "$default_branch" ]; then
+              echo "No default branch in $repo, skipping"
+              continue
+            fi
+
+            # Set branch protection via API
+            gh api \
+              --method PUT \
+              -H "Accept: application/vnd.github+json" \
+              /repos/cwilliamson-tgg/$repo/branches/$default_branch/protection \
+              -f required_status_checks='null' \
+              -F enforce_admins=false \
+              -f required_pull_request_reviews='{"required_approving_review_count":1,"dismiss_stale_reviews":true}' \
+              -f restrictions='null' \
+              -F allow_force_pushes=false \
+              -F allow_deletions=false \
+              && echo "✅ Protected $repo/$default_branch" \
+              || echo "⚠️ Could not protect $repo (may need admin access)"
           done
